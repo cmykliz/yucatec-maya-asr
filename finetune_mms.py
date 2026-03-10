@@ -301,7 +301,7 @@ def main(args):
         args=training_args,
         train_dataset=ds["train"],
         eval_dataset=ds["test"],
-        tokenizer=processor.feature_extractor,
+        processing_class=processor,
         data_collator=data_collator,
         compute_metrics=make_compute_metrics(processor),
     )
