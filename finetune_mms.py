@@ -276,7 +276,7 @@ def main(args):
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=8,
         gradient_accumulation_steps=2,
-        learning_rate=1e-4,
+        learning_rate=args.learning_rate,
         warmup_steps=100,
         eval_strategy="epoch",
         save_strategy="epoch",
@@ -373,5 +373,7 @@ if __name__ == "__main__":
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--eval_only",   action="store_true",
                         help="Skip training, just evaluate a saved model")
+    parser.add_argument("--learning_rate", type=float, default=1e-5,
+                    help="Learning rate (default 1e-5)")
     args = parser.parse_args()
     main(args)
