@@ -1,0 +1,13 @@
+# Dataset output
+doreco_yuca1254_hf/
+
+# Model checkpoints
+mms-300m-yucatec-maya/
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
