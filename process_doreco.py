@@ -6,8 +6,8 @@ HuggingFace-compatible dataset of utterance-level segments.
 
 Usage:
     python process_doreco.py \
-        --audio_dir doreco_yuca1254_audiofiles_v2.0 \
-        --eaf_dir   doreco_yuca1254_core_v2.0 \
+        --audio_dir path/to/doreco_yuca1254_audiofiles_v2.0 \
+        --eaf_dir   path/to/doreco_yuca1254_core_v2.0 \
         --output_dir ./doreco_yuca1254_hf \
         --push_to_hub  (optional)
 
@@ -244,7 +244,8 @@ def main(audio_dir, eaf_dir, output_dir, metadata_csv=None,
     eaf_files = sorted(eaf_dir.glob("*.eaf"))
     print(f"Found {len(eaf_files)} EAF files\n")
 
-    all_records = []
+    # Collect parsed utterances per file first (no audio slicing yet)
+    parsed_files = []
 
     for eaf_path in eaf_files:
         # Derive file stem: doreco_yuca1254_YUC-TXT-CD-00000-12 → YUC-TXT-CD-00000-12
@@ -254,7 +255,6 @@ def main(audio_dir, eaf_dir, output_dir, metadata_csv=None,
         # Find matching WAV
         wav_path = audio_dir / f"{stem}.wav"
         if not wav_path.exists():
-            # Try with prefix
             matches = list(audio_dir.glob(f"*{short_stem}.wav"))
             wav_path = matches[0] if matches else None
 
@@ -264,27 +264,52 @@ def main(audio_dir, eaf_dir, output_dir, metadata_csv=None,
 
         print(f"Processing: {short_stem}")
 
-        # Parse EAF
         utterances = parse_eaf(eaf_path)
         print(f"  {len(utterances)} utterances found")
         if not utterances:
             continue
 
-        # Get file-level metadata
-        fmeta = file_meta.get(short_stem, {})
+        parsed_files.append({
+            "short_stem": short_stem,
+            "wav_path":   wav_path,
+            "utterances": utterances,
+            "fmeta":      file_meta.get(short_stem, {}),
+        })
 
-        # Slice audio
-        split_audio_dir = output_dir / "audio_clips" / short_stem
-        clip_paths = slice_audio(str(wav_path), utterances,
-                                  str(split_audio_dir), short_stem)
+    # ── Determine train/test split by file ────────────────────────────
+    source_files = [f["short_stem"] for f in parsed_files]
+    n_test_files = max(1, int(len(source_files) * test_split))
+    test_files   = set(source_files[-n_test_files:])
+    train_files  = set(source_files) - test_files
 
-        # Build records
-        for i, (utt, clip_path) in enumerate(zip(utterances, clip_paths)):
+    print(f"\nTrain files ({len(train_files)}): {sorted(train_files)}")
+    print(f"Test files  ({len(test_files)}):  {sorted(test_files)}")
+
+    # ── Slice audio directly into correct split folder ─────────────────
+    all_records = []
+
+    for file_info in parsed_files:
+        short_stem  = file_info["short_stem"]
+        wav_path    = file_info["wav_path"]
+        utterances  = file_info["utterances"]
+        fmeta       = file_info["fmeta"]
+
+        split       = "test" if short_stem in test_files else "train"
+        # Write clips into train/audio_clips/ or test/audio_clips/
+        clip_dir    = output_dir / split / "audio_clips" / short_stem
+        clip_paths  = slice_audio(str(wav_path), utterances,
+                                   str(clip_dir), short_stem)
+
+        for utt, clip_path in zip(utterances, clip_paths):
             if clip_path is None:
-                continue  # skipped (too short or pydub unavailable)
+                continue
+
+            # file_name must be relative to the split folder
+            # e.g. "audio_clips/YUC-TXT-CD-00000-12/YUC-TXT-CD-00000-12_utt_0000.wav"
+            file_name = os.path.relpath(clip_path, output_dir / split)
 
             record = {
-                "file_name":     os.path.relpath(clip_path, output_dir),
+                "file_name":     file_name,
                 "transcription": utt["transcription"],
                 "translation":   utt["translation"],
                 "speaker_id":    utt["speaker_id"],
@@ -304,15 +329,6 @@ def main(audio_dir, eaf_dir, output_dir, metadata_csv=None,
             all_records.append(record)
 
     print(f"\nTotal utterances: {len(all_records)}")
-
-    # ── Train / test split (by file, not by utterance, to avoid leakage) ──
-    source_files = sorted(set(r["source_file"] for r in all_records))
-    n_test_files = max(1, int(len(source_files) * test_split))
-    test_files   = set(source_files[-n_test_files:])  # last N files → test
-    train_files  = set(source_files) - test_files
-
-    print(f"Train files ({len(train_files)}): {sorted(train_files)}")
-    print(f"Test files  ({len(test_files)}):  {sorted(test_files)}")
 
     train_records = [r for r in all_records if r["source_file"] in train_files]
     test_records  = [r for r in all_records if r["source_file"] in test_files]
