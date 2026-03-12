@@ -134,7 +134,6 @@ def prepare_dataset(batch, processor):
 
     return batch
 
-
 # ─────────────────────────────────────────────
 # DATA COLLATOR
 # ─────────────────────────────────────────────
@@ -248,6 +247,16 @@ def main(args):
         num_proc=1,  # keep at 1 for MPS compatibility
     )
 
+    def is_valid(example):
+        input_len = len(example["input_values"]) // 320
+        label_len = len(example["labels"])
+        ratio = input_len / max(label_len, 1)
+        return ratio >= 2.0 and label_len <= 100
+
+    ds = ds.filter(is_valid)
+    print(f"After filtering - train: {len(ds['train'])}, test: {len(ds['test'])}")
+
+
     # ── 5. Load pretrained MMS model ──────────────────────────────────
     print(f"\nLoading {args.model_name}...")
     model = Wav2Vec2ForCTC.from_pretrained(
@@ -257,7 +266,7 @@ def main(args):
         feat_proj_dropout=0.0,
         mask_time_prob=0.05,
         layerdrop=0.1,
-        ctc_loss_reduction="mean",
+        ctc_loss_reduction="sum",
         pad_token_id=processor.tokenizer.pad_token_id,
         vocab_size=len(processor.tokenizer),
         ignore_mismatched_sizes=True,  # needed when replacing vocab head
@@ -277,7 +286,8 @@ def main(args):
         per_device_eval_batch_size=8,
         gradient_accumulation_steps=2,
         learning_rate=args.learning_rate,
-        warmup_steps=100,
+        max_grad_norm=0.1,
+        warmup_steps=200,
         eval_strategy="epoch",
         save_strategy="epoch",
         logging_steps=20,
@@ -287,7 +297,7 @@ def main(args):
         fp16=False,                    # MPS doesn't support fp16
         dataloader_num_workers=0,      # required for MPS stability
         report_to="none",              # disable wandb
-        push_to_hub=False,
+        push_to_hub=False
     )
 
     # ── 7. Data collator ──────────────────────────────────────────────

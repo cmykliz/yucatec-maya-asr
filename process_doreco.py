@@ -154,6 +154,10 @@ def parse_eaf(eaf_path):
         if not transcription or transcription in SKIP_VALUES:
             continue
 
+        # Skip utterances shorter than 1.5 seconds — too short for reliable CTC
+        if (end_ms - start_ms) < 1500:
+            continue
+
         utterances.append({
             "ann_id":        ann_id,
             "start_ms":      start_ms,
