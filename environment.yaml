@@ -7,57 +7,25 @@ dependencies:
   - pip
   - ffmpeg                        # audio codec support (needed by pydub)
   - pip:
-      # ── Audio processing ──────────────────────────────────────────────
-      - pydub                     # WAV slicing
+# ── Audio processing ──────────────────────────────────────────────
+      - pydub==0.25.1             # WAV slicing
       - librosa                   # audio analysis / feature inspection
       - soundfile                 # reading/writing WAV files
-
-      # ── HuggingFace ecosystem ─────────────────────────────────────────
-      - transformers>=4.40.0      # MMS, wav2vec2, CTC training
-      - datasets>=2.18.0          # audiofolder loader, push_to_hub
-      - evaluate                  # WER metric
-      - accelerate>=0.27.0        # multi-GPU / mixed precision training
-      - huggingface_hub           # push model + dataset to Hub
-
-      # ── ASR / speech ──────────────────────────────────────────────────
-      - jiwer                     # Word Error Rate calculation
-      - torch>=2.1.0              # PyTorch (CPU version — see note below)
-      - torchaudio>=2.1.0         # audio loading for torch
-
-      # ── Data / NLP utilities ──────────────────────────────────────────
+      - torchcodec==0.10.0        # required by datasets>=2.19 for audio loading
+# ── HuggingFace ecosystem ─────────────────────────────────────────
+      - transformers==5.3.0       # MMS, wav2vec2, CTC training
+      - datasets==4.7.0           # audiofolder loader, push_to_hub
+      - evaluate==0.4.6           # WER metric
+      - accelerate==1.13.0        # multi-GPU / mixed precision training
+      - huggingface_hub==1.6.0    # push model + dataset to Hub
+# ── ASR / speech ──────────────────────────────────────────────────
+      - jiwer==4.0.0              # Word Error Rate calculation
+      - torch==2.10.0             # PyTorch (CPU version — see note below)
+      - torchaudio==2.10.0        # audio loading for torch
+# ── Data / NLP utilities ──────────────────────────────────────────
       - pandas                    # metadata handling
       - numpy
-
-      # ── Dev / notebook ────────────────────────────────────────────────
+# ── Dev / notebook ────────────────────────────────────────────────
       - jupyter
       - ipykernel
       - tqdm                      # progress bars
-
-# ─────────────────────────────────────────────────────────────────────────────
-# NOTES
-# ─────────────────────────────────────────────────────────────────────────────
-#
-# 1. CREATE THE ENVIRONMENT:
-#       conda env create -f environment.yaml
-#       conda activate mayan-asr
-#
-# 2. UPDATE AN EXISTING ENVIRONMENT:
-#       conda env update -f environment.yaml --prune
-#
-# 3. PyTorch GPU (if you have an NVIDIA GPU):
-#    Replace the torch/torchaudio lines above with:
-#       - torch>=2.1.0+cu121
-#       - torchaudio>=2.1.0+cu121
-#    Or install manually after activation:
-#       pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
-#
-# 4. Apple Silicon (M1/M2/M3 Mac — which you have):
-#    The pip install above will pull the MPS-compatible torch build automatically.
-#    MMS fine-tuning will use Apple's Metal GPU via:
-#       device = "mps" if torch.backends.mps.is_available() else "cpu"
-#    This is ~3-5x faster than CPU for this size of dataset.
-#
-# 5. EXPORT your current environment at any time with:
-#       conda env export > environment_locked.yaml
-#    Keep environment.yaml (this file) for portability,
-#    and environment_locked.yaml for exact reproducibility.
